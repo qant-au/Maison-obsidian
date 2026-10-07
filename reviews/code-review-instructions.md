@@ -149,13 +149,14 @@ Reconcile this map against the repository at the start of every review (see Revi
 
 ### Roles and trust boundaries
 
-Derive the real set from the code each cycle (`supabase/migrations/`, `src/lib/auth.ts`, `src/lib/admin.ts`, `src/lib/staffDesk.ts`, and every `api/` handler). As of 2026-10-07 the code describes:
+Derive the real set from the code each cycle (`supabase/migrations/`, `src/lib/auth.ts`, `src/lib/admin.ts`, `src/lib/staffDesk.ts`, and every `api/` handler). As of 2026-10-07 (reconciled against the code in the first review; the earlier draft of this list repeated the README's stale passphrase and Mailgun descriptions) the code describes:
 
-- **Anonymous visitor / guest shopper** - the browser holds the Supabase anon key; RLS and RPC grants are all that constrain it. Guest orders exist (`0018_guest_orders.sql`).
+- **Anonymous visitor / guest shopper** - the browser holds the Supabase anon key; RLS and RPC grants are all that constrain it. Guest orders exist (`0018_guest_orders.sql`) and are matched back to an account by the JWT email claim.
 - **Signed-in customer** - Supabase Auth (email/password and Google OAuth); owns their commits, orders, subscriptions, profile and Scentprint.
 - **Admin** - membership of an admins table checked by `is_admin()`; catalogue CRUD, inventory, fulfillment, AI conception, marketing, reviews, subscriptions, waitlist.
-- **Staff desk** - reached with a **shared passphrase**, not a login (`0025_staff_desk.sql`); sees order contact details and addresses.
-- **Server** - Vercel functions and Edge Functions holding `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `AUSPOST_PAC_KEY` and Mailgun credentials. Anything running with the service role bypasses RLS entirely.
+- **Staff desk** - an **individual Supabase account** that is a member of `staff_members` (or an admin), per `0029_checkout_security.sql`. The shared passphrase introduced in `0025_staff_desk.sql` is gone: `staff_ok()` ignores its `p_pass` argument, `admin_set_staff_passphrase` is revoked, and the README's description of it is stale. Sees order contact details and addresses through the `staff_*` RPCs only.
+- **Server** - Vercel functions and the `create-shipment` Edge Function holding `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY` (or `ANTHROPIC_KEY`), `AUSPOST_PAC_KEY` and the **Resend** credentials (`RESEND_API_KEY`, `RECOVERY_EMAIL_FROM`); Mailgun appears in the docs but nothing in the code reads it. Anything running with the service role bypasses RLS entirely.
+- **Payments** are taken in full at checkout through hosted Stripe Checkout (`api/stripe/checkout.ts`, `mode: "payment"`, no manual capture). The README's authorise-now-capture-later batch model and `capture-batch` function do not exist at HEAD.
 
 ### Settled positions - do not file
 
